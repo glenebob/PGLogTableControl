@@ -195,8 +195,8 @@ SET default_with_oids = false;
 CREATE TABLE log_control (
     log character varying(20) NOT NULL,
     current_partition integer,
-    min_part_age interval,
-    max_part_age interval
+    min_part_age interval NOT NULL,
+    max_part_age interval NOT NULL
 );
 
 
@@ -207,7 +207,7 @@ CREATE TABLE log_control (
 CREATE TABLE log_partitions (
     log character varying(20) NOT NULL,
     partition integer NOT NULL,
-    created timestamp(0) without time zone,
+    created timestamp(0) without time zone NOT NULL,
     superceded timestamp(0) without time zone
 );
 
