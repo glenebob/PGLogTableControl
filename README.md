@@ -42,5 +42,12 @@ Usage:
     ) VALUES (
       'mylog', interval '1 day', interval '3 months'
     );
-    
-  4) Set up a cron job that will cause maintain_logs() to be executed at least as often as the shortest log_control.min_part_age value.
+   
+  4) Call maintain_log(text) to initialize the log.  Example:
+    SELECT maintain_log('mylog');
+    The first partition table will be called "mylog_part_00000001".
+   
+  5) Set up a cron job that will cause maintain_logs() to be executed at least as often as the shortest log_control.min_part_age value.  Example: Call maintain_logs() every midnight.
+
+  6) To see the table maintenance in action quickly, set min_part_age to interval '1 second', and max_part_age to interval '10 seconds', and then call maintain_logs() repeatedly.
+  
