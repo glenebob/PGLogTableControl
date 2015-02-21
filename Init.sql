@@ -99,8 +99,10 @@ CREATE FUNCTION maintain_log(log_name text) RETURNS void
   control       record;
   partition     record;
   create_part   bool;
+  delete_part   bool;
   part_num      int;
   part_name     text;
+  record_count  int;
 
 BEGIN
   SELECT * INTO control FROM log_control WHERE log = log_name FOR UPDATE;
@@ -153,10 +155,24 @@ BEGIN
   END IF;
 
   FOR partition IN SELECT * FROM log_partitions WHERE log_partitions.log = log_name AND log_partitions.partition <> part_num ORDER BY partition LOOP
-    IF (partition.superceded + control.max_part_age < current_timestamp AT TIME ZONE 'UTC') THEN
-      part_num = partition.partition;
-      part_name := log_name || '_part_' || to_char(part_num, 'FM00000000');
+    delete_part := false;
 
+    part_num = partition.partition;
+    part_name := log_name || '_part_' || to_char(part_num, 'FM00000000');
+
+    IF (partition.superceded + control.max_part_age < current_timestamp AT TIME ZONE 'UTC') THEN
+      delete_part := true;
+    END IF;
+
+    IF (NOT delete_part) THEN
+      EXECUTE 'SELECT count(*) FROM "' || part_name || '" LIMIT 1' INTO record_count;
+
+      IF (record_count = 0) THEN
+        delete_part = true;
+      END IF;
+    END IF;
+
+    IF (delete_part) THEN
       EXECUTE 'DROP TABLE "' || part_name || '"';
 
       DELETE FROM log_partitions WHERE log_partitions.log = log_name AND log_partitions.partition = partition.partition;
