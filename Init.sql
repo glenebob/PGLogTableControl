@@ -47,8 +47,11 @@ BEGIN
   EXECUTE 'CREATE OR REPLACE RULE "' || part_name || '_update_block" AS ON UPDATE TO "' || part_name || '" DO INSTEAD NOTIFY "' || part_name || '"';
   EXECUTE 'CREATE OR REPLACE RULE "' || part_name || '_delete_block" AS ON DELETE TO "' || part_name || '" DO INSTEAD NOTIFY "' || part_name || '"';
 
-  EXECUTE 'INSERT INTO log_partitions (log, partition, created) VALUES (''' || log_name || ''', ''' || part_num || ''',  current_timestamp AT TIME ZONE ''UTC'')';
-  EXECUTE 'UPDATE log_control SET current_partition = ' || part_num || ' WHERE log = ''' || log_name || '''';
+  EXECUTE 'INSERT INTO log_partitions (log, partition, created) VALUES ($1, $2,  current_timestamp AT TIME ZONE ''UTC'')'
+    log_name, part_num;
+
+  EXECUTE 'UPDATE log_control SET current_partition = $1 WHERE log = $2'
+    part_num, log_name;
 END;
 $$;
 
@@ -131,14 +134,24 @@ BEGIN
     END IF;
 
     IF (partition.created + control.min_part_age - INTERVAL '10 minute' < current_timestamp AT TIME ZONE 'UTC') THEN
-      create_part = true;
-      part_num := control.current_partition + 1;
+      part_num = partition.partition;
+      part_name := log_name || '_part_' || to_char(part_num, 'FM00000000');
+
+      EXECUTE 'SELECT count(*) FROM "' || part_name || '" LIMIT 1'
+        INTO record_count;
+
+      IF (record_count > 0) THEN
+        create_part := true;
+        part_num := control.current_partition + 1;
+      END IF;
     END IF;
   END IF;
 
   IF (create_part) THEN
     IF (NOT partition IS NULL) THEN
-      EXECUTE 'UPDATE log_partitions SET superceded = current_timestamp AT TIME ZONE ''UTC'' WHERE log = ''' || log_name || ''' AND partition = ' || partition.partition;
+      EXECUTE 'UPDATE log_partitions SET superceded = current_timestamp AT TIME ZONE ''UTC'' WHERE log = $1 AND partition = $2'
+        USING log_name, partition.partition;
+
       EXECUTE 'CREATE OR REPLACE RULE ' || part_name || '_insert_block AS ON INSERT TO ' || part_name || ' DO INSTEAD NOTIFY ' || part_name;
     END IF;
 
@@ -150,8 +163,11 @@ BEGIN
     EXECUTE 'CREATE OR REPLACE RULE "' || part_name || '_update_block" AS ON UPDATE TO "' || part_name || '" DO INSTEAD NOTIFY "' || part_name || '"';
     EXECUTE 'CREATE OR REPLACE RULE "' || part_name || '_delete_block" AS ON DELETE TO "' || part_name || '" DO INSTEAD NOTIFY "' || part_name || '"';
 
-    EXECUTE 'INSERT INTO log_partitions (log, partition, created) VALUES (''' || log_name || ''', ' || part_num || ',  current_timestamp AT TIME ZONE ''UTC'')';
-    EXECUTE 'UPDATE log_control SET current_partition = ' || part_num || ' WHERE log = ''' || log_name || '''';
+    EXECUTE 'INSERT INTO log_partitions (log, partition, created) VALUES ($1, $2, current_timestamp AT TIME ZONE ''UTC'')'
+      USING log_name, part_num;
+
+    EXECUTE 'UPDATE log_control SET current_partition = $1 WHERE log = $2'
+      USING part_num, log_name;
   END IF;
 
   FOR partition IN SELECT * FROM log_partitions WHERE log_partitions.log = log_name AND log_partitions.partition <> part_num ORDER BY partition LOOP
@@ -165,10 +181,11 @@ BEGIN
     END IF;
 
     IF (NOT delete_part) THEN
-      EXECUTE 'SELECT count(*) FROM "' || part_name || '" LIMIT 1' INTO record_count;
+      EXECUTE 'SELECT count(*) FROM "' || part_name || '" LIMIT 1'
+        INTO record_count;
 
       IF (record_count = 0) THEN
-        delete_part = true;
+        delete_part := true;
       END IF;
     END IF;
 
