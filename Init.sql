@@ -47,11 +47,13 @@ BEGIN
   EXECUTE 'CREATE OR REPLACE RULE "' || part_name || '_update_block" AS ON UPDATE TO "' || part_name || '" DO INSTEAD NOTIFY "' || part_name || '"';
   EXECUTE 'CREATE OR REPLACE RULE "' || part_name || '_delete_block" AS ON DELETE TO "' || part_name || '" DO INSTEAD NOTIFY "' || part_name || '"';
 
-  EXECUTE 'INSERT INTO log_partitions (log, partition, created) VALUES ($1, $2,  current_timestamp AT TIME ZONE ''UTC'')'
-    log_name, part_num;
+  EXECUTE
+    'INSERT INTO log_partitions (log, partition, created) VALUES ($1, $2, current_timestamp AT TIME ZONE ''UTC'')'
+    USING log_name, part_num;
 
-  EXECUTE 'UPDATE log_control SET current_partition = $1 WHERE log = $2'
-    part_num, log_name;
+  EXECUTE
+    'UPDATE log_control SET current_partition = $1 WHERE log = $2'
+    USING part_num, log_name;
 END;
 $$;
 
