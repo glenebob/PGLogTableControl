@@ -135,7 +135,7 @@ BEGIN
       RAISE EXCEPTION 'Partition record for current partition already superceded';
     END IF;
 
-    IF (partition.created + control.min_part_age - INTERVAL '10 minute' < current_timestamp AT TIME ZONE 'UTC') THEN
+    IF (partition.created + control.min_part_age < current_timestamp AT TIME ZONE 'UTC') THEN
       part_num = partition.partition;
       part_name := log_name || '_part_' || to_char(part_num, 'FM00000000');
 
@@ -211,11 +211,9 @@ CREATE FUNCTION maintain_logs() RETURNS void
   logs         record;
 
 BEGIN
-
   FOR logs IN SELECT * FROM log_control ORDER BY log LOOP
     PERFORM maintain_log(logs.log);
   END LOOP;
-  
 END;
 $$;
 
