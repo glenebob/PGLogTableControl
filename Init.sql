@@ -14,7 +14,7 @@ SET search_path = public, pg_catalog;
 -- Name: clear_log(text); Type: FUNCTION;
 --
 
-CREATE FUNCTION clear_log(log_name text) RETURNS void
+CREATE OR REPLACE FUNCTION clear_log(log_name text) RETURNS void
     LANGUAGE plpgsql
     AS $$DECLARE
   control       record;
@@ -62,7 +62,7 @@ $$;
 -- Name: delete_log(text); Type: FUNCTION;
 --
 
-CREATE FUNCTION delete_log(log_name text) RETURNS void
+CREATE OR REPLACE FUNCTION delete_log(log_name text) RETURNS void
     LANGUAGE plpgsql
     AS $$DECLARE
   control       record;
@@ -98,7 +98,7 @@ $$;
 -- Name: maintain_log(text); Type: FUNCTION;
 --
 
-CREATE FUNCTION maintain_log(log_name text) RETURNS void
+CREATE OR REPLACE FUNCTION maintain_log(log_name text) RETURNS void
     LANGUAGE plpgsql
     AS $$DECLARE
   control       record;
@@ -205,7 +205,7 @@ $$;
 -- Name: maintain_logs(); Type: FUNCTION;
 --
 
-CREATE FUNCTION maintain_logs() RETURNS void
+CREATE OR REPLACE FUNCTION maintain_logs() RETURNS void
     LANGUAGE plpgsql
     AS $$DECLARE
   logs         record;
@@ -225,7 +225,7 @@ SET default_with_oids = false;
 -- Name: log_control; Type: TABLE;
 --
 
-CREATE TABLE log_control (
+CREATE TABLE IF NOT EXISTS log_control (
     log character varying(20) NOT NULL,
     current_partition integer,
     min_part_age interval NOT NULL,
@@ -237,7 +237,7 @@ CREATE TABLE log_control (
 -- Name: log_partitions; Type: TABLE;
 --
 
-CREATE TABLE log_partitions (
+CREATE TABLE IF NOT EXISTS log_partitions (
     log character varying(20) NOT NULL,
     partition integer NOT NULL,
     created timestamp(0) without time zone NOT NULL,
@@ -250,12 +250,18 @@ CREATE TABLE log_partitions (
 --
 
 ALTER TABLE ONLY log_control
+    DROP CONSTRAINT IF EXISTS log_control_pkey CASCADE;
+
+ALTER TABLE ONLY log_control
     ADD CONSTRAINT log_control_pkey PRIMARY KEY (log);
 
 
 --
 -- Name: log_partitions_pkey; Type: CONSTRAINT;
 --
+
+ALTER TABLE ONLY log_partitions
+    DROP CONSTRAINT IF EXISTS log_partitions_pkey CASCADE;
 
 ALTER TABLE ONLY log_partitions
     ADD CONSTRAINT log_partitions_pkey PRIMARY KEY (log, partition);
@@ -266,12 +272,18 @@ ALTER TABLE ONLY log_partitions
 --
 
 ALTER TABLE ONLY log_control
+    DROP CONSTRAINT IF EXISTS log_control_log_fkey CASCADE;
+
+ALTER TABLE ONLY log_control
     ADD CONSTRAINT log_control_log_fkey FOREIGN KEY (log, current_partition) REFERENCES log_partitions(log, partition) ON UPDATE RESTRICT ON DELETE RESTRICT;
 
 
 --
 -- Name: log_partitions_log_fkey; Type: FK CONSTRAINT;
 --
+
+ALTER TABLE ONLY log_partitions
+    DROP CONSTRAINT IF EXISTS log_partitions_log_fkey CASCADE;
 
 ALTER TABLE ONLY log_partitions
     ADD CONSTRAINT log_partitions_log_fkey FOREIGN KEY (log) REFERENCES log_control(log);
