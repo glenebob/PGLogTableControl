@@ -136,10 +136,7 @@ BEGIN
     END IF;
 
     IF (partition.created + control.min_part_age < current_timestamp AT TIME ZONE 'UTC') THEN
-      part_num = partition.partition;
-      part_name := log_name || '_part_' || to_char(part_num, 'FM00000000');
-
-      EXECUTE 'SELECT count(*) FROM "' || part_name || '" LIMIT 1'
+      EXECUTE 'SELECT count(*) FROM (SELECT NULL FROM "' || part_name || '" LIMIT 1)'
         INTO record_count;
 
       IF (record_count > 0) THEN
@@ -183,7 +180,7 @@ BEGIN
     END IF;
 
     IF (NOT delete_part) THEN
-      EXECUTE 'SELECT count(*) FROM "' || part_name || '" LIMIT 1'
+      EXECUTE 'SELECT count(*) FROM (SELECT NULL FROM "' || part_name || '" LIMIT 1)'
         INTO record_count;
 
       IF (record_count = 0) THEN
