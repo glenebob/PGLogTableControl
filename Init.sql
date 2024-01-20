@@ -29,6 +29,8 @@ BEGIN
     RAISE EXCEPTION 'Log % is not defined', log_name;
   END IF;
 
+  EXECUTE 'LOCK TABLE "' || log_name || '" IN ACCESS EXCLUSIVE MODE';
+
   UPDATE log_control SET current_partition = NULL WHERE log = log_name;
 
   FOR partition IN SELECT * FROM log_partitions WHERE log_partitions.log = log_name ORDER BY partition LOOP
@@ -76,6 +78,8 @@ BEGIN
   IF control IS NULL THEN
     RAISE EXCEPTION 'Log % is not defined', log_name;
   END IF;
+
+  EXECUTE 'LOCK TABLE "' || log_name || '" IN ACCESS EXCLUSIVE MODE';
 
   UPDATE log_control SET current_partition = NULL WHERE log = log_name;
 
@@ -136,6 +140,8 @@ BEGIN
     END IF;
 
     IF (partition.created + control.min_part_age < current_timestamp AT TIME ZONE 'UTC') THEN
+      EXECUTE 'LOCK TABLE "' || log_name || '" IN ACCESS EXCLUSIVE MODE';
+
       EXECUTE 'SELECT count(*) FROM (SELECT NULL FROM "' || part_name || '" LIMIT 1)'
         INTO record_count;
 
@@ -151,7 +157,7 @@ BEGIN
       EXECUTE 'UPDATE log_partitions SET superceded = current_timestamp AT TIME ZONE ''UTC'' WHERE log = $1 AND partition = $2'
         USING log_name, partition.partition;
 
-      EXECUTE 'CREATE OR REPLACE RULE ' || part_name || '_insert_block AS ON INSERT TO ' || part_name || ' DO INSTEAD NOTIFY ' || part_name;
+      EXECUTE 'CREATE OR REPLACE RULE "' || part_name || '_insert_block" AS ON INSERT TO "' || part_name || '" DO INSTEAD NOTIFY ' || part_name;
     END IF;
 
     part_name := log_name || '_part_' || to_char(part_num, 'FM00000000');
